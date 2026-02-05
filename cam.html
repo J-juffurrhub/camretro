@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RetroSnap Pro - Multi-Format Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-gray: #c0c0c0;
+            --win-blue: #000080;
+            --border-light: #ffffff;
+            --border-dark: #808080;
+        }
+
+        body {
+            background-color: #3a6ea5;
+            font-family: 'Tahoma', sans-serif;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .win-outset {
+            border: 2px solid;
+            border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+        }
+
+        .win-inset {
+            border: 2px solid;
+            border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
+            background: #000;
+        }
+
+        .win-title {
+            background: linear-gradient(90deg, var(--win-blue), #1084d0);
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            padding: 3px 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: var(--bg-gray);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+
+        .main-view {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #222;
+        }
+
+        canvas {
+            max-width: 95%;
+            max-height: 95%;
+            display: block;
+            box-shadow: 0 0 50px rgba(0,0,0,0.9);
+        }
+
+        .timestamp-label {
+            font-family: 'VT323', monospace;
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        .ts-digital {
+            color: #ff3c00;
+            font-size: 42px;
+            text-shadow: 0 0 8px rgba(255, 60, 0, 0.6);
+        }
+
+        .ts-analog {
+            color: #ffae00;
+            font-size: 34px;
+            opacity: 0.85;
+            text-shadow: 2px 2px 2px rgba(0,0,0,0.5);
+        }
+
+        .win-btn {
+            background: var(--bg-gray);
+            border: 1px solid;
+            border-color: var(--border-light) var(--border-dark) var(--border-dark) var(--border-light);
+            padding: 6px 12px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .win-btn:active {
+            border-color: var(--border-dark) var(--border-light) var(--border-light) var(--border-dark);
+        }
+
+        select {
+            background: white;
+            border: 1px solid var(--border-dark);
+            font-size: 11px;
+            padding: 2px;
+            width: 100%;
+            outline: none;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar win-outset">
+        <div class="win-title">
+            <span>Snapshot Processor v5.1</span>
+        </div>
+        
+        <div class="p-4 flex-1 overflow-y-auto">
+            <div class="mb-4">
+                <label class="text-[11px] font-bold block mb-1 uppercase">Fonte de Imagem:</label>
+                <input type="file" id="imageInput" accept="image/*" class="text-[10px] w-full bg-white border border-gray-600 p-1">
+            </div>
+
+            <div class="mb-2">
+                <label class="text-[11px] font-bold block mb-1 uppercase">Meio de Captura:</label>
+                <select id="cameraProfile">
+                    <option value="floppy">Câmara de Disquete (320p - Digital Soft)</option>
+                    <option value="consumer" selected>Câmara de Filme (480p - Analógica)</option>
+                    <option value="pro">Semi-Pro 35mm (720p - Sharp Optic)</option>
+                </select>
+            </div>
+
+            <div class="mb-2">
+                <label class="text-[11px] font-bold block mb-1 uppercase">Estética de Cor:</label>
+                <select id="colorCast">
+                    <option value="soft">Soft & Neutral (Equilibrada)</option>
+                    <option value="violet">Shadow Violet (Erro CCD Azulado)</option>
+                    <option value="washed">Washed Out (Pálida/Cinza)</option>
+                    <option value="warm">Warm Glow (Alaranjada)</option>
+                </select>
+            </div>
+
+            <div class="mb-2">
+                <label class="text-[11px] font-bold block mb-1 uppercase">Anomalias Ópticas:</label>
+                <select id="lensBug">
+                    <option value="none">Nenhuma (Lente Limpa)</option>
+                    <option value="rgb">Bug Cromático (Cores nas pontas)</option>
+                    <option value="haze">Lens Haze (Névoa Suja)</option>
+                </select>
+            </div>
+
+            <div class="mb-2">
+                <label class="text-[11px] font-bold block mb-1 uppercase">Marca de Data:</label>
+                <select id="timestampStyle">
+                    <option value="digital">Digital (Segmentada Laranja)</option>
+                    <option value="analog">Analógica (Clássica Filme)</option>
+                    <option value="none">Nenhuma</option>
+                </select>
+            </div>
+
+            <div class="space-y-4 pt-4 border-t border-gray-400">
+                <button id="renderBtn" class="win-btn w-full uppercase text-blue-900 shadow-sm">Revelar/Processar</button>
+                <button id="downloadBtn" class="win-btn w-full hidden">Salvar Jpeg</button>
+            </div>
+        </div>
+
+        <div class="p-2 border-t border-gray-600 text-[10px] font-mono text-center text-gray-600">
+            SYSTEM ARCHIVE: 1996-2001
+        </div>
+    </aside>
+
+    <main class="main-view relative">
+        <div id="welcome" class="text-white font-mono text-center">
+            <p class="text-xl">RetroSnap Pro v5.1</p>
+            <p class="text-[10px] opacity-60 mt-2">Simulação de Lentes Bugadas.</p>
+        </div>
+
+        <div id="previewArea" class="hidden relative win-inset">
+            <canvas id="mainCanvas"></canvas>
+            <div id="timestamp" class="timestamp-label"></div>
+        </div>
+    </main>
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const cameraProfile = document.getElementById('cameraProfile');
+        const colorCast = document.getElementById('colorCast');
+        const lensBug = document.getElementById('lensBug');
+        const timestampStyle = document.getElementById('timestampStyle');
+        const mainCanvas = document.getElementById('mainCanvas');
+        const ctx = mainCanvas.getContext('2d');
+        const previewArea = document.getElementById('previewArea');
+        const welcome = document.getElementById('welcome');
+        const timestampDiv = document.getElementById('timestamp');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        let originalImg = null;
+
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                originalImg = new Image();
+                originalImg.onload = () => {
+                    welcome.classList.add('hidden');
+                    previewArea.classList.remove('hidden');
+                    downloadBtn.classList.remove('hidden');
+                    processRetro();
+                };
+                originalImg.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('renderBtn').addEventListener('click', processRetro);
+
+        function processRetro() {
+            if (!originalImg) return;
+
+            const mode = cameraProfile.value;
+            const cast = colorCast.value;
+            const tsMode = timestampStyle.value;
+            const bug = lensBug.value;
+            
+            let lowResW;
+            if (mode === 'floppy') lowResW = 320; 
+            else if (mode === 'consumer') lowResW = 640;
+            else lowResW = 1100;
+
+            const lowResH = (originalImg.height / originalImg.width) * lowResW;
+
+            const finalW = 1280;
+            const finalH = (originalImg.height / originalImg.width) * finalW;
+            mainCanvas.width = finalW;
+            mainCanvas.height = finalH;
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = lowResW;
+            tempCanvas.height = lowResH;
+            const tctx = tempCanvas.getContext('2d');
+
+            // --- FILTROS DE COR ---
+            let filterStr = `brightness(1.08) contrast(0.8) saturate(1.1)`;
+            if(cast === 'washed') filterStr += ` grayscale(0.2) brightness(1.15)`;
+            if(cast === 'warm') filterStr += ` sepia(0.35) hue-rotate(-5deg)`;
+            if(cast === 'violet') filterStr += ` hue-rotate(240deg) saturate(1.0) brightness(1.05)`;
+            if(cast === 'soft') filterStr += ` contrast(0.85) saturate(0.95)`;
+
+            tctx.filter = filterStr;
+            tctx.drawImage(originalImg, 0, 0, lowResW, lowResH);
+
+            // --- BUG CROMÁTICO (ABERRAÇÃO) ---
+            // Criamos camadas deslocadas se o bug estiver ativo
+            if (bug === 'rgb') {
+                ctx.globalCompositeOperation = 'source-over';
+                
+                // Camada Vermelha deslocada
+                ctx.globalAlpha = 0.5;
+                ctx.filter = 'drop-shadow(3px 0px 0px red)';
+                ctx.drawImage(tempCanvas, 0, 0, finalW, finalH);
+                
+                // Camada Azul deslocada
+                ctx.filter = 'drop-shadow(-3px 0px 0px blue)';
+                ctx.drawImage(tempCanvas, 0, 0, finalW, finalH);
+                
+                ctx.filter = 'none';
+                ctx.globalAlpha = 1.0;
+            }
+
+            // --- DESENHO PRINCIPAL ---
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'low';
+            const blurAmt = mode === 'floppy' ? 'blur(0.8px)' : (mode === 'consumer' ? 'blur(0.3px)' : 'none');
+            ctx.filter = blurAmt;
+            ctx.drawImage(tempCanvas, 0, 0, finalW, finalH);
+            ctx.filter = 'none';
+
+            // --- BLOOM & HAZE ---
+            const bloomCanvas = document.createElement('canvas');
+            bloomCanvas.width = finalW;
+            bloomCanvas.height = finalH;
+            const bctx = bloomCanvas.getContext('2d');
+            
+            const blurVal = (mode === 'floppy' || bug === 'haze') ? 35 : 15;
+            bctx.filter = `brightness(1.6) blur(${blurVal}px)`;
+            bctx.drawImage(mainCanvas, 0, 0);
+            
+            ctx.globalAlpha = bug === 'haze' ? 0.5 : (mode === 'floppy' ? 0.35 : 0.2); 
+            ctx.globalCompositeOperation = 'screen';
+            ctx.drawImage(bloomCanvas, 0, 0);
+            
+            // --- FADE & CAST ---
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = 0.1;
+            if(cast === 'violet') ctx.fillStyle = '#f0f0ff';
+            else if(cast === 'warm') ctx.fillStyle = '#fff9e6';
+            else ctx.fillStyle = '#fdfdfd';
+            ctx.fillRect(0, 0, finalW, finalH);
+
+            // Tingimento subtil de sombras
+            if(cast === 'violet') {
+                ctx.globalAlpha = 0.05;
+                ctx.fillStyle = '#0000ff'; 
+                ctx.fillRect(0, 0, finalW, finalH);
+            }
+
+            ctx.globalAlpha = 1.0;
+
+            // --- VINHETA ---
+            const grad = ctx.createRadialGradient(finalW/2, finalH/2, finalW/4, finalW/2, finalH/2, finalW/0.95);
+            grad.addColorStop(0, "transparent");
+            grad.addColorStop(1, "rgba(0, 0, 0, 0.25)");
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, finalW, finalH);
+
+            // --- DATA ---
+            const d = new Date(1995 + Math.floor(Math.random()*6), Math.floor(Math.random()*12), Math.floor(Math.random()*28));
+            const meses = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+            const formattedDate = `${String(d.getDate()).padStart(2,'0')} ${meses[d.getMonth()]} '${String(d.getFullYear()).slice(-2)}`;
+            
+            timestampDiv.className = 'timestamp-label';
+            if(tsMode === 'digital') {
+                timestampDiv.classList.add('ts-digital');
+                timestampDiv.innerText = `${String(d.getDate()).padStart(2,'0')}.${meses[d.getMonth()]}.${d.getFullYear()}`;
+            } else if(tsMode === 'analog') {
+                timestampDiv.classList.add('ts-analog');
+                timestampDiv.innerText = formattedDate;
+            } else {
+                timestampDiv.innerText = '';
+            }
+        }
+
+        downloadBtn.addEventListener('click', () => {
+            const final = document.createElement('canvas');
+            final.width = mainCanvas.width;
+            final.height = mainCanvas.height;
+            const fctx = final.getContext('2d');
+            fctx.drawImage(mainCanvas, 0, 0);
+            
+            if(timestampStyle.value !== 'none') {
+                const isDigital = timestampStyle.value === 'digital';
+                fctx.font = isDigital ? `${Math.floor(final.height/14)}px 'VT323'` : `${Math.floor(final.height/16)}px 'VT323'`;
+                fctx.fillStyle = isDigital ? "#ff3c00" : "#ffae00";
+                fctx.textAlign = "right";
+                if(isDigital) {
+                    fctx.shadowColor = "rgba(255, 60, 0, 0.5)";
+                    fctx.shadowBlur = 10;
+                } else {
+                    fctx.shadowColor = "rgba(0,0,0,0.5)";
+                    fctx.shadowBlur = 4;
+                }
+                fctx.fillText(timestampDiv.innerText, final.width - 40, final.height - 40);
+            }
+
+            const a = document.createElement('a');
+            a.href = final.toDataURL('image/jpeg', 0.85);
+            a.download = 'vintage_glitch_capture.jpg';
+            a.click();
+        });
+    </script>
+</body>
+</html>
